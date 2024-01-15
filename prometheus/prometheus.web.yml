@@ -1,0 +1,3 @@
+﻿# может ругаться - это не страшно
+basic_auth_users:
+  admin: "$2y$10$MnOUYJuRjQkgb9zEJUREqOGJ/pApgZBCCs7kbi24ica9Lbgt6lzXK"

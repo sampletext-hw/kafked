@@ -1,0 +1,90 @@
+version: "3"
+
+services:
+  
+  consumer-service:
+    build:
+      context: srvs-one/ConsumerApp
+      dockerfile: ./Dockerfile
+    ports:
+      - "51111:80"
+    restart: always
+    depends_on: 
+      - kafka
+
+  producer-service:
+    build:
+      context: srvs-two/ProducerApp
+      dockerfile: ./Dockerfile
+    ports:
+      - "52222:80"
+    restart: always
+    depends_on:
+      - kafka
+        
+  rabbit:
+    image: "rabbitmq:latest"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: "admin"
+      RABBITMQ_DEFAULT_PASS: "admin"
+  
+  kafka:
+    image: docker.io/bitnami/kafka:3.6
+    user: root
+    ports:
+      - "9092:9092"
+    volumes:
+      - /kafka_data_internal2:/bitnami
+    environment:
+      # KRaft settings
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      # Listeners
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+  
+  seq:
+    image: datalust/seq
+    container_name: seq
+    ports:
+      - "50505:80"
+    volumes:
+      - ./seq:/data
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_API_CANONICALURI: "https://localhost:50505"
+    
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    user: root
+    volumes:
+      - ./prometheus/prometheus:/prometheus/data
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/prometheus.web.yml:/etc/prometheus/prometheus.web.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus/data'
+      - '--web.config.file=/etc/prometheus/prometheus.web.yml'    
+    ports:
+      - "55055:9090"
+  
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    user: root
+    volumes:
+      - ./grafana:/var/lib/grafana
+    environment:
+      GF_SERVER_ROOT_URL: http://localhost:3000
+    ports:
+      - "50555:3000"
+    depends_on:
+      - prometheus
